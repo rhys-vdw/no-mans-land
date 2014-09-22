@@ -2,7 +2,8 @@
   "name": "no-mans-land",
   "private": true,
   "dependencies": {
-    "jquery": "~1.11.0"
+    "jquery": "~1.11.0",
+    "crafty": "~0.6.2"
   },
   "devDependencies": {}
 }
