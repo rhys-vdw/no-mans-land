@@ -10,8 +10,6 @@ game =
   height: -> @grid.height * @tile.height
 
   init: ->
-    console.dir Crafty
-    console.dir @
     Crafty.init @width(), @height()
     Crafty.background 'rgb(100, 100, 100)'
 
@@ -20,28 +18,89 @@ game =
 # -- Components --
 
 Crafty.c 'Grid',
+  ready: true
+
+  divisions: (h, v) ->
+    @_divisions.h = h
+    @_divisions.v = v
+
+  cellSize: ->
+    width: @w / @_divisions.h
+    height: @h / @_divisions.v
+
+  cell: (col, row) ->
+    c = @cellSize()
+    return {
+      x: (col * c.width) + @x
+      y: (row * c.height) + @y
+      w: c.width
+      h: c.height
+    }
+
+  cellAtPosition: (x, y) ->
+    c = @cellSize()
+    @cell Math.floor((x - @x) / c.width), Math.floor((y - @y) / c.height)
+
+  drawGrid: (ctx, pos) ->
+    ctx.beginPath()
+    for i in [0..@_divisions.v]
+      ctx.moveTo(i * @h / @_divisions.v, 0)
+      ctx.lineTo(i * @h / @_divisions.v, @w)
+    for i in [0..@_divisions.h]
+      ctx.moveTo(0,  i * @w / @_divisions.h)
+      ctx.lineTo(@h, i * @w / @_divisions.h)
+    ctx.stroke()
+
   init: ->
+    @requires 'Canvas, 2D'
+
+    @_divisions =
+      h: 14
+      v: 14
+
+    @bind 'Draw', (e) => @drawGrid(e.ctx, e.pos)
+
+Crafty.c 'Griddable',
+  init: ->
+    @requires 'Draggable'
     @attr w: game.tile.width, h: game.tile.height
+    @bind 'StopDrag', (e) ->
+      return unless @_grid?
+      cell = @_grid.cellAtPosition(e.pageX, e.pageY)
+      @attr x: cell.x, y: cell.y
+
+  grid: (grid) ->
+    @_grid = grid
+    return @
+
   position: (x, y) ->
-    if x? and y?
-      @attr x: x * game.tile.width, y: y * game.tile.height
-    else
-      return x: @x / game.tile.width, y: @y / game.tile.height
+    cell = @_grid.cell x, y
+    @attr x: cell.x, y: cell.y
 
 Crafty.c 'Tile',
-  init: -> @requires '2D, Canvas, Grid'
+  init: -> @requires '2D, Canvas, Griddable'
+
+Crafty.c 'TrenchTile',
+  init: -> @requires 'Tile, Rotatable'
+
+Crafty.c 'Rotatable',
+  init: ->
+    @requires '2D, Mouse'
+    @origin 'center'
+    @bind 'MouseUp', (e) ->
+      @rotation += 90 if e.mouseButton == Crafty.mouseButtons.RIGHT
 
 Crafty.c 'StraightTrench',
-  init: -> @requires 'Tile, spr_trench_straight'
+  init: -> @requires 'TrenchTile, spr_trench_straight'
 
 Crafty.c 'TTrench',
-  init: -> @requires 'Tile, spr_trench_t'
+  init: -> @requires 'TrenchTile, spr_trench_t'
 
 Crafty.c 'CrossTrench',
-  init: -> @requires 'Tile, spr_trench_cross'
+  init: -> @requires 'TrenchTile, spr_trench_cross'
 
 Crafty.c 'BendTrench',
-  init: -> @requires 'Tile, spr_trench_bend'
+  init: -> @requires 'TrenchTile, spr_trench_bend'
 
 # Loading scene
 # -------------
@@ -73,7 +132,8 @@ Crafty.scene 'Loading', ->
     Crafty.scene 'Game'
 
 Crafty.scene 'Game', ->
-  b = Crafty.e('BendTrench').position(5,5)
+  grid = Crafty.e('Grid').attr(x: 0, y: 0, w: game.width(), h: game.height())
+  b = Crafty.e('BendTrench').grid(grid).position(5,5)
 
 window.addEventListener 'load', -> game.init()
 
