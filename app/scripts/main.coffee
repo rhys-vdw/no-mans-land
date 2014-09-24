@@ -118,7 +118,7 @@ Crafty.c 'GridHighlight',
     return @
 
   init: ->
-    @_globalZ = -100
+    @z = -100
     @requires 'Canvas, 2D'
     @bind 'Draw', (e) => @drawHighlight(e.ctx, e.pos)
 
@@ -128,19 +128,18 @@ Crafty.c 'GridHighlight',
 
 Crafty.c 'Griddable',
   init: ->
-    @_globalZ = 2
+    @attr z: 2, w: game.tile.width, h: game.tile.height
     @requires 'Draggable, 2D'
-    @attr w: game.tile.width, h: game.tile.height
 
-  griddable: (grid, highlight) ->
+  griddable: (grid, highlight, @_staticZ=2, @_dragZ=999) ->
     throw 'no no' if @_grid?
     @_grid = grid
 
     @bind 'StartDrag', ->
-      @_globalZ = 999
+      @attr z: @_dragZ
 
     @bind 'StopDrag', (e) ->
-      @_globalZ = 0
+      @attr z: @_staticZ
       cell = @_grid.cellAtPosition(@_x + @_w / 2, @_y + @_h / 2)
       @attr x: cell.x, y: cell.y
 
@@ -179,8 +178,12 @@ Crafty.c 'Mask',
 
   init: ->
     @_maskObject = Crafty.e '2D, Canvas'
+    @_maskObject.attr z: @z
     @bind 'DoubleClick', => @masked(!@masked())
     @attach @_maskObject
+    @bind 'Invalidate', ->
+      if @_z != @_maskObject._z
+        @_maskObject.attr z: @_z
 
 Crafty.c 'TrenchTile',
   init: ->
