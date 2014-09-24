@@ -17,7 +17,9 @@ shuffle = (array) ->
     return array
 
 game =
-  margin: 100
+  margin:
+    x: 300
+    y: 100
   tile:
     width: 64
     height: 64
@@ -28,34 +30,49 @@ game =
   height: -> @grid.height * @tile.height
 
   init: ->
-    Crafty.init @width() + @margin, @height() + @margin
+    Crafty.init @width() + @margin.x, @height() + @margin.x
     Crafty.background 'rgb(100, 100, 100)'
 
     Crafty.scene 'Loading'
 
 # -- Components --
 
+Crafty.c 'Owned',
+  init: (@_owner) ->
+  
+
+Crafty.c 'DrawDeck',
+  init: ->
+    @requires 'Deck, Mouse, Canvas, 2D'
+
+    @bind 'Click', (e) ->
+      console.log "CLICK!"
+      console.log 'left?',e.mouseButton == Crafty.mouseButtons.LEFT, 'next?',  @hasNextCard()
+      if e.mouseButton == Crafty.mouseButtons.LEFT and @hasNextCard()
+        @nextCard().attr(x: @x + 5, y: @y + 5).startDrag()
+
 Crafty.c 'Deck',
   init: ->
-    #@requires 'Keyboard'
     @_cards = []
-    @bind 'KeyDown', (e) ->
-      if e.key == Crafty.keys.ENTER
-        @nextCard()
 
   deck: (grid, highlight) ->
     @_grid = grid
     @_highlight = highlight
     return @
 
-  nextCard: -> Crafty.e(@_cards.pop()).griddable(@_grid, @_highlight).position(2, 2)
+  hasNextCard: -> @_cards.length > 0
+  nextCard: ->
+    Crafty.e(@_cards.pop()).griddable(@_grid, @_highlight)
+
   shuffle: ->
     shuffle @_cards
+    @trigger 'CardsShuffled', @_cards
     return @
 
   # Takes an object of card types and quantities, and adds them to the deck.
   add: (types) ->
     Lazy(types).each (count, type) => Lazy.range(0, count).each => @_cards.push type
+    @trigger 'CardsAdded', types
     return @
 
 Crafty.c 'Grid',
@@ -240,15 +257,14 @@ Crafty.scene 'Loading', ->
     Crafty.scene 'Game'
 
 Crafty.scene 'Game', ->
-  grid = Crafty.e('Grid').attr(x: game.margin / 2, y: game.margin / 2, w: game.width(), h: game.height())
+  grid = Crafty.e('Grid').attr(x: game.margin.x / 2, y: game.margin.y / 2, w: game.width(), h: game.height())
   highlight = Crafty.e('GridHighlight').gridHighlight(grid, 'white')
-  trenchDeck = Crafty.e('Deck').deck(grid, highlight).add(
+  trenchDeck = Crafty.e('DrawDeck, spr_trench_back').deck(grid, highlight).add(
     StraightTrench: 20
     TTrench: 20
     CrossTrench: 20
     BendTrench: 20
   ).shuffle()
-  console.dir trenchDeck._cards
 
   b = Crafty.e('BendTrench').griddable(grid, highlight).position(5,5)
 
