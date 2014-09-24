@@ -1,3 +1,20 @@
+shuffle = (array) ->
+    counter = array.length
+
+    # While there are elements in the array
+    while counter > 0
+        # Pick a random index
+        index = Math.floor Math.random() * counter
+
+        # Decrease counter by 1
+        counter--
+
+        # And swap the last element with it
+        temp = array[counter]
+        array[counter] = array[index]
+        array[index] = temp
+
+    return array
 
 game =
   tile:
@@ -16,6 +33,25 @@ game =
     Crafty.scene 'Loading'
 
 # -- Components --
+
+Crafty.c 'Deck',
+  init: ->
+    #@requires 'Keyboard'
+    @_cards = []
+    @bind 'KeyDown', (e) ->
+      if e.key == Crafty.keys.ENTER
+        @nextCard()
+        e.preventDefault()
+
+  nextCard: -> Crafty.e(@_cards.pop()).grid(@_grid).position(2, 2)
+  shuffle: ->
+    shuffle @_cards
+    return @
+
+  # Takes an object of card types and quantities, and adds them to the deck.
+  add: (types) ->
+    Lazy(types).each (count, type) => Lazy.range(0, count).each => @_cards.push type
+    return @
 
 Crafty.c 'Grid',
   ready: true
@@ -76,6 +112,7 @@ Crafty.c 'Griddable',
   position: (x, y) ->
     cell = @_grid.cell x, y
     @attr x: cell.x, y: cell.y
+    return @
 
 Crafty.c 'Tile',
   init: -> @requires '2D, Canvas, Griddable'
@@ -133,6 +170,14 @@ Crafty.scene 'Loading', ->
 
 Crafty.scene 'Game', ->
   grid = Crafty.e('Grid').attr(x: 0, y: 0, w: game.width(), h: game.height())
+  trenchDeck = Crafty.e('Deck').add(
+    StraightTrench: 20
+    TTrench: 20
+    CrossTrench: 20
+    BendTrench: 20
+  ).shuffle()
+  trenchDeck._grid = grid
+  console.dir trenchDeck._cards
   b = Crafty.e('BendTrench').grid(grid).position(5,5)
 
 window.addEventListener 'load', -> game.init()
