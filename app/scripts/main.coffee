@@ -41,7 +41,6 @@ Crafty.c 'Deck',
     @bind 'KeyDown', (e) ->
       if e.key == Crafty.keys.ENTER
         @nextCard()
-        e.preventDefault()
 
   nextCard: -> Crafty.e(@_cards.pop()).grid(@_grid).position(2, 2)
   shuffle: ->
@@ -85,6 +84,7 @@ Crafty.c 'Grid',
     for i in [0..@_divisions.h]
       ctx.moveTo(0,  i * @w / @_divisions.h)
       ctx.lineTo(@h, i * @w / @_divisions.h)
+    ctx.strokeStyle = 'black'
     ctx.stroke()
 
   init: ->
@@ -94,19 +94,53 @@ Crafty.c 'Grid',
       h: 14
       v: 14
 
-    @bind 'Draw', (e) => @drawGrid(e.ctx, e.pos)
+    @bind 'Draw', (e) =>
+      @drawGrid(e.ctx, e.pos)
+
+Crafty.c 'GridHighlight',
+  ready: true
+  _changed: true
+
+  gridHighlight: (grid, color) ->
+    @_grid = grid
+    @_color = color
+    return @
+
+  init: ->
+    @_globalZ = -100
+    @requires 'Canvas, 2D'
+    @attr(x: 0, y: 0, w: 64, h:64)
+    @origin 'center'
+    @bind 'Draw', (e) => @drawHighlight(e.ctx, e.pos)
+
+  drawHighlight: (ctx, pos) ->
+    ctx.strokeStyle = @_color
+    ctx.strokeRect(pos._x + 1, pos._y + 1, pos._w - 2, pos._h - 2)
 
 Crafty.c 'Griddable',
   init: ->
-    @requires 'Draggable'
+    @_globalZ = 2
+    @requires 'Draggable, 2D'
     @attr w: game.tile.width, h: game.tile.height
-    @bind 'StopDrag', (e) ->
-      return unless @_grid?
-      cell = @_grid.cellAtPosition(e.pageX, e.pageY)
-      @attr x: cell.x, y: cell.y
 
   grid: (grid) ->
+    throw 'no no' if @_grid?
     @_grid = grid
+
+    @_highlight = Crafty.e('GridHighlight').gridHighlight(grid, 'white')
+    @_highlight.visible = false
+    #@attach @_highlight
+
+    @bind 'StopDrag', (e) ->
+      @_highlight.visible = false
+      cell = @_grid.cellAtPosition(@_x + @_w / 2, @_y + @_h / 2)
+      @attr x: cell.x, y: cell.y
+
+    @bind 'Dragging', ->
+      @_highlight.visible = true
+      cell = @_grid.cellAtPosition(@_x + @_w / 2, @_y + @_h / 2)
+      @_highlight.attr cell
+
     return @
 
   position: (x, y) ->
@@ -117,8 +151,26 @@ Crafty.c 'Griddable',
 Crafty.c 'Tile',
   init: -> @requires '2D, Canvas, Griddable'
 
+Crafty.c 'Mask',
+  masked: (value) ->
+    if value?
+      @_maskObject.visible = value
+    else
+      return @_maskObject.visible
+
+  mask: (sprite) ->
+    @_maskObject.addComponent sprite
+    return @
+
+  init: ->
+    @_maskObject = Crafty.e '2D, Canvas'
+    @bind 'DoubleClick', => @masked(!@masked())
+    @attach @_maskObject
+
 Crafty.c 'TrenchTile',
-  init: -> @requires 'Tile, Rotatable'
+  init: ->
+    @requires 'Tile, Rotatable, Mask'
+    @mask 'spr_trench_back'
 
 Crafty.c 'Rotatable',
   init: ->
