@@ -17,6 +17,7 @@ shuffle = (array) ->
     return array
 
 game =
+  margin: 100
   tile:
     width: 64
     height: 64
@@ -27,7 +28,7 @@ game =
   height: -> @grid.height * @tile.height
 
   init: ->
-    Crafty.init @width(), @height()
+    Crafty.init @width() + @margin, @height() + @margin
     Crafty.background 'rgb(100, 100, 100)'
 
     Crafty.scene 'Loading'
@@ -83,12 +84,14 @@ Crafty.c 'Grid',
 
   drawGrid: (ctx, pos) ->
     ctx.beginPath()
-    for i in [0..@_divisions.v]
-      ctx.moveTo(i * @h / @_divisions.v, 0)
-      ctx.lineTo(i * @h / @_divisions.v, @w)
     for i in [0..@_divisions.h]
-      ctx.moveTo(0,  i * @w / @_divisions.h)
-      ctx.lineTo(@h, i * @w / @_divisions.h)
+      x = pos._x + i * pos._h / @_divisions.v
+      ctx.moveTo(x,          pos._y)
+      ctx.lineTo(x, pos._h + pos._y)
+    for i in [0..@_divisions.v]
+      y = pos._y + i * pos._w / @_divisions.h
+      ctx.moveTo(         pos._x, y)
+      ctx.lineTo(pos._x + pos._w, y)
     ctx.strokeStyle = 'black'
     ctx.stroke()
 
@@ -234,7 +237,7 @@ Crafty.scene 'Loading', ->
     Crafty.scene 'Game'
 
 Crafty.scene 'Game', ->
-  grid = Crafty.e('Grid').attr(x: 0, y: 0, w: game.width(), h: game.height())
+  grid = Crafty.e('Grid').attr(x: game.margin / 2, y: game.margin / 2, w: game.width(), h: game.height())
   highlight = Crafty.e('GridHighlight').gridHighlight(grid, 'white')
   trenchDeck = Crafty.e('Deck').deck(grid, highlight).add(
     StraightTrench: 20
