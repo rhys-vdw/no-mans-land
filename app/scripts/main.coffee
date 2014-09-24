@@ -42,7 +42,12 @@ Crafty.c 'Deck',
       if e.key == Crafty.keys.ENTER
         @nextCard()
 
-  nextCard: -> Crafty.e(@_cards.pop()).grid(@_grid).position(2, 2)
+  deck: (grid, highlight) ->
+    @_grid = grid
+    @_highlight = highlight
+    return @
+
+  nextCard: -> Crafty.e(@_cards.pop()).griddable(@_grid, @_highlight).position(2, 2)
   shuffle: ->
     shuffle @_cards
     return @
@@ -104,13 +109,14 @@ Crafty.c 'GridHighlight',
   gridHighlight: (grid, color) ->
     @_grid = grid
     @_color = color
+
+    size = grid.cellSize()
+    @attr(x: 0, y: 0, w: size.width, size.height)
     return @
 
   init: ->
     @_globalZ = -100
     @requires 'Canvas, 2D'
-    @attr(x: 0, y: 0, w: 64, h:64)
-    @origin 'center'
     @bind 'Draw', (e) => @drawHighlight(e.ctx, e.pos)
 
   drawHighlight: (ctx, pos) ->
@@ -123,23 +129,29 @@ Crafty.c 'Griddable',
     @requires 'Draggable, 2D'
     @attr w: game.tile.width, h: game.tile.height
 
-  grid: (grid) ->
+  griddable: (grid, highlight) ->
     throw 'no no' if @_grid?
     @_grid = grid
 
-    @_highlight = Crafty.e('GridHighlight').gridHighlight(grid, 'white')
-    @_highlight.visible = false
-    #@attach @_highlight
+    @bind 'StartDrag', ->
+      @_globalZ = 999
 
     @bind 'StopDrag', (e) ->
-      @_highlight.visible = false
+      @_globalZ = 0
       cell = @_grid.cellAtPosition(@_x + @_w / 2, @_y + @_h / 2)
       @attr x: cell.x, y: cell.y
 
-    @bind 'Dragging', ->
-      @_highlight.visible = true
-      cell = @_grid.cellAtPosition(@_x + @_w / 2, @_y + @_h / 2)
-      @_highlight.attr cell
+    if highlight?
+      @_highlight = highlight
+      @_highlight.visible = false
+
+      @bind 'StopDrag', (e) ->
+        @_highlight.visible = false
+
+      @bind 'Dragging', ->
+        @_highlight.visible = true
+        cell = @_grid.cellAtPosition(@_x + @_w / 2, @_y + @_h / 2)
+        @_highlight.attr cell
 
     return @
 
@@ -223,15 +235,16 @@ Crafty.scene 'Loading', ->
 
 Crafty.scene 'Game', ->
   grid = Crafty.e('Grid').attr(x: 0, y: 0, w: game.width(), h: game.height())
-  trenchDeck = Crafty.e('Deck').add(
+  highlight = Crafty.e('GridHighlight').gridHighlight(grid, 'white')
+  trenchDeck = Crafty.e('Deck').deck(grid, highlight).add(
     StraightTrench: 20
     TTrench: 20
     CrossTrench: 20
     BendTrench: 20
   ).shuffle()
-  trenchDeck._grid = grid
   console.dir trenchDeck._cards
-  b = Crafty.e('BendTrench').grid(grid).position(5,5)
+
+  b = Crafty.e('BendTrench').griddable(grid, highlight).position(5,5)
 
 window.addEventListener 'load', -> game.init()
 
