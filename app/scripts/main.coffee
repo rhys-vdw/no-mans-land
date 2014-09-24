@@ -30,14 +30,43 @@ game =
   height: -> @grid.height * @tile.height
 
   init: ->
-    Crafty.init @width() + @margin.x, @height() + @margin.x
+    Crafty.init @width() + @margin.x, @height() + @margin.y, $('#game')[0]
     Crafty.background 'rgb(100, 100, 100)'
-
     Crafty.scene 'Loading'
+
+    $status = $('#status')
+    $nextTurn = $('#next-turn')
+
+    $nextTurn.click (->
+      gameStarted = false
+      onTurn = false
+      player = 1
+
+      return (e) ->
+        e.preventDefault()
+        if not gameStarted
+          onTurn = false
+          player = 1
+          gameStarted = true
+
+          $status.text "Player #{ player }:"
+          $nextTurn.text "Start Turn"
+        else if onTurn
+          onTurn = false
+          Crafty.trigger 'EndTurn', player: player
+
+          player = if player == 1 then 2 else 1
+          $status.text "Player #{ player }:"
+          $nextTurn.text "Start Turn"
+        else
+          onTurn = true
+          $nextTurn.text "End Turn"
+          Crafty.trigger 'StartTurn', player: nextPlayer
+    )()
 
 # -- Components --
 
-Crafty.c 'OwnedBy', ownedBy: (@ownedBy) ->
+Crafty.c 'Owned', owned: (@owner) ->
 
 Crafty.c 'DrawDeck',
   init: ->
@@ -45,7 +74,7 @@ Crafty.c 'DrawDeck',
 
     @bind 'Click', (e) ->
       if e.mouseButton == Crafty.mouseButtons.LEFT and @hasNextCard()
-        @nextCard().attr(x: @x + 5, y: @y + 5).startDrag()
+        @nextCard().attr(x: @x, y: @y).startDrag()
 
 Crafty.c 'Deck',
   init: ->
@@ -92,9 +121,11 @@ Crafty.c 'Grid',
     }
 
   cellAtPosition: (x, y) ->
-    return undefined unless @isAt x, y
-    c = @cellSize()
-    @cell Math.floor((x - @x) / c.width), Math.floor((y - @y) / c.height)
+    return if @isAt x, y
+      c = @cellSize()
+      @cell Math.floor((x - @x) / c.width), Math.floor((y - @y) / c.height)
+    else
+      undefined
 
   drawGrid: (ctx, pos) ->
     ctx.beginPath()
@@ -143,11 +174,9 @@ Crafty.c 'GridHighlight',
 Crafty.c 'Griddable',
   init: ->
     @attr z: 2, w: game.tile.width, h: game.tile.height
-    @requires 'Draggable, 2D'
+    @requires 'Draggable, 2D, Mouse'
 
-  griddable: (grid, highlight, @_staticZ=2, @_dragZ=999) ->
-    throw 'no no' if @_grid?
-    @_grid = grid
+  griddable: (@_grid, @_highlight, @_staticZ=2, @_dragZ=999) ->
 
     @bind 'StartDrag', ->
       @attr z: @_dragZ
@@ -158,8 +187,7 @@ Crafty.c 'Griddable',
       if cell?
         @attr x: cell.x, y: cell.y
 
-    if highlight?
-      @_highlight = highlight
+    if @_highlight?
       @_highlight.visible = false
 
       @bind 'StopDrag', (e) ->
@@ -260,7 +288,13 @@ Crafty.scene 'Loading', ->
 Crafty.scene 'Game', ->
   grid = Crafty.e('Grid').attr(x: game.margin.x / 2, y: game.margin.y / 2, w: game.width(), h: game.height())
   highlight = Crafty.e('GridHighlight').gridHighlight(grid, 'white')
-  trenchDeck = Crafty.e('DrawDeck, spr_trench_back').deck(grid, highlight).add(
+
+  trenchDeck = Crafty.e 'DrawDeck, spr_trench_back'
+      .deck(grid, highlight)
+      .attr(
+        x: game.margin.x / 4 - 32
+        y: (game.height() + game.margin.y) / 2 - 32
+      ).add(
     StraightTrench: 20
     TTrench: 20
     CrossTrench: 20
