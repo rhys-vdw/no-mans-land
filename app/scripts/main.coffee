@@ -37,17 +37,13 @@ game =
 
 # -- Components --
 
-Crafty.c 'Owned',
-  init: (@_owner) ->
-  
+Crafty.c 'OwnedBy', ownedBy: (@ownedBy) ->
 
 Crafty.c 'DrawDeck',
   init: ->
     @requires 'Deck, Mouse, Canvas, 2D'
 
     @bind 'Click', (e) ->
-      console.log "CLICK!"
-      console.log 'left?',e.mouseButton == Crafty.mouseButtons.LEFT, 'next?',  @hasNextCard()
       if e.mouseButton == Crafty.mouseButtons.LEFT and @hasNextCard()
         @nextCard().attr(x: @x + 5, y: @y + 5).startDrag()
 
@@ -96,6 +92,7 @@ Crafty.c 'Grid',
     }
 
   cellAtPosition: (x, y) ->
+    return undefined unless @isAt x, y
     c = @cellSize()
     @cell Math.floor((x - @x) / c.width), Math.floor((y - @y) / c.height)
 
@@ -158,7 +155,8 @@ Crafty.c 'Griddable',
     @bind 'StopDrag', (e) ->
       @attr z: @_staticZ
       cell = @_grid.cellAtPosition(@_x + @_w / 2, @_y + @_h / 2)
-      @attr x: cell.x, y: cell.y
+      if cell?
+        @attr x: cell.x, y: cell.y
 
     if highlight?
       @_highlight = highlight
@@ -168,9 +166,12 @@ Crafty.c 'Griddable',
         @_highlight.visible = false
 
       @bind 'Dragging', ->
-        @_highlight.visible = true
         cell = @_grid.cellAtPosition(@_x + @_w / 2, @_y + @_h / 2)
-        @_highlight.attr cell
+        if cell?
+          @_highlight.visible = true
+          @_highlight.attr cell
+        else
+          @_highlight.visible = false
 
     return @
 
@@ -265,8 +266,6 @@ Crafty.scene 'Game', ->
     CrossTrench: 20
     BendTrench: 20
   ).shuffle()
-
-  b = Crafty.e('BendTrench').griddable(grid, highlight).position(5,5)
 
 window.addEventListener 'load', -> game.init()
 
