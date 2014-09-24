@@ -160,10 +160,11 @@ Crafty.scene 'Loading', ->
     #  to remind us that they simply cause the entity
     #  to be drawn with a certain sprite
     Crafty.sprite 64, 'images/trench-tiles.png',
-      spr_trench_straight: [0, 0]
-      spr_trench_t:        [1, 0]
-      spr_trench_cross:    [2, 0]
-      spr_trench_bend:     [3, 0]
+      spr_trench_back:     [0, 0]
+      spr_trench_straight: [1, 0]
+      spr_trench_t:        [2, 0]
+      spr_trench_cross:    [3, 0]
+      spr_trench_bend:     [4, 0]
 
     # Now that our sprites are ready to draw, start the game
     Crafty.scene 'Game'
