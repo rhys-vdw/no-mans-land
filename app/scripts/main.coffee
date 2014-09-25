@@ -16,7 +16,8 @@ shuffle = (array) ->
 
     return array
 
-game =
+game = null
+config =
   margin:
     x: 300
     y: 100
@@ -29,44 +30,78 @@ game =
   width: -> @grid.width * @tile.width
   height: -> @grid.height * @tile.height
 
+
   init: ->
     Crafty.init @width() + @margin.x, @height() + @margin.y, $('#game')[0]
     Crafty.background 'rgb(100, 100, 100)'
-    Crafty.scene 'Loading'
+
+    game = Crafty.e('GameManager')
+    console.log 'game', game
 
     $status = $('#status')
     $nextTurn = $('#next-turn')
 
-    $nextTurn.click (->
-      gameStarted = false
-      onTurn = false
-      player = 1
-
-      return (e) ->
-        e.preventDefault()
-        if not gameStarted
-          onTurn = false
-          player = 1
-          gameStarted = true
-
-          $status.text "Player #{ player }:"
-          $nextTurn.text "Start Turn"
-        else if onTurn
-          onTurn = false
-          Crafty.trigger 'EndTurn', player: player
-
-          player = if player == 1 then 2 else 1
-          $status.text "Player #{ player }:"
+    $nextTurn.click (e) ->
+      e.preventDefault()
+      if game._gameStarted
+        if game._onTurn
+          game.endTurn()
+          game.nextTurn()
+          $status.text "Player #{ game._player }:"
           $nextTurn.text "Start Turn"
         else
-          onTurn = true
+          game.startTurn()
           $nextTurn.text "End Turn"
-          Crafty.trigger 'StartTurn', player: nextPlayer
-    )()
+      else
+        game.startGame()
+        $status.text "Player #{ game._player }:"
+        $nextTurn.text "Start Turn"
 
 # -- Components --
 
-Crafty.c 'Owned', owned: (@owner) ->
+Crafty.c 'GameManager',
+  init: ->
+    console.log "init?"
+    @requires 'Keyboard'
+
+    @bind 'KeyDown', (e) -> @_keydown e
+    @bind 'KeyUp', (e) -> @_keyup e
+
+    @_started = false
+    @_player = null
+    @_onTurn = false
+
+    console.log "Loading!"
+    Crafty.scene 'Loading'
+
+  activePlayer: -> @_player
+
+  startGame: ->
+    @_onTurn = false
+    @_player = 1
+    @_gameStarted = true
+    Crafty.trigger 'StartGame'
+
+  startTurn: ->
+    @_onTurn = true
+    Crafty.trigger 'StartTurn', player: @_player
+
+  nextTurn: ->
+    @_player = if @_player == 1 then 2 else 1
+
+  endTurn: ->
+    @_onTurn = false
+    Crafty.trigger 'EndTurn', player: @_player
+
+  _keydown: (e) ->
+    if e.keyCode == Crafty.keys.ENTER and @_onTurn
+      Crafty.trigger 'Reveal', player: @_player
+
+  _keyup: (e) ->
+    if e.keyCode == Crafty.keys.ENTER
+      Crafty.trigger 'Hide', player: @_player
+
+Crafty.c 'Owned', owned: (@_owner) -> @
 
 Crafty.c 'DrawDeck',
   init: ->
@@ -87,7 +122,8 @@ Crafty.c 'Deck',
 
   hasNextCard: -> @_cards.length > 0
   nextCard: ->
-    Crafty.e(@_cards.pop()).griddable(@_grid, @_highlight)
+    console.log "Craeting a tile owned by ", game.activePlayer()
+    Crafty.e(@_cards.pop()).griddable(@_grid, @_highlight).owned(game.activePlayer())
 
   shuffle: ->
     shuffle @_cards
@@ -173,7 +209,7 @@ Crafty.c 'GridHighlight',
 
 Crafty.c 'Griddable',
   init: ->
-    @attr z: 2, w: game.tile.width, h: game.tile.height
+    @attr z: 2, w: config.tile.width, h: config.tile.height
     @requires 'Draggable, 2D, Mouse'
 
   griddable: (@_grid, @_highlight, @_staticZ=2, @_dragZ=999) ->
@@ -214,15 +250,17 @@ Crafty.c 'Tile',
 Crafty.c 'Mask',
   masked: (value) ->
     if value?
+      @_masked = value
       @_maskObject.visible = value
     else
-      return @_maskObject.visible
+      return @_masked
 
   mask: (sprite) ->
     @_maskObject.addComponent sprite
     return @
 
   init: ->
+    @_masked = true
     @_maskObject = Crafty.e '2D, Canvas'
     @_maskObject.attr z: @z
     @bind 'DoubleClick', => @masked(!@masked())
@@ -231,10 +269,21 @@ Crafty.c 'Mask',
       if @_z != @_maskObject._z
         @_maskObject.attr z: @_z
 
+    @bind 'Reveal', (e) ->
+      if @_owner == e.player
+        @_maskObject.visible = false
+
+    @bind 'Hide', (e) ->
+      if @_owner == e.player and @_masked
+        @_maskObject.visible = true
+
 Crafty.c 'TrenchTile',
   init: ->
-    @requires 'Tile, Rotatable, Mask'
+    @requires 'Tile, Rotatable, Mask, Owned'
     @mask 'spr_trench_back'
+    @bind 'StartTurn', (e) ->
+      if e.player == @_owner
+        @masked(false)
 
 Crafty.c 'Rotatable',
   init: ->
@@ -263,7 +312,7 @@ Crafty.scene 'Loading', ->
   #  takes a noticeable amount of time to load
   Crafty.e('2D, DOM, Text')
     .text('Loading...')
-    .attr({ x: 0, y: game.height()/2 - 24, w: game.width() })
+    .attr({ x: 0, y: config.height()/2 - 24, w: config.width() })
     #.css($text_css)
 
   # Load our sprite map image
@@ -286,14 +335,14 @@ Crafty.scene 'Loading', ->
     Crafty.scene 'Game'
 
 Crafty.scene 'Game', ->
-  grid = Crafty.e('Grid').attr(x: game.margin.x / 2, y: game.margin.y / 2, w: game.width(), h: game.height())
+  grid = Crafty.e('Grid').attr(x: config.margin.x / 2, y: config.margin.y / 2, w: config.width(), h: config.height())
   highlight = Crafty.e('GridHighlight').gridHighlight(grid, 'white')
 
   trenchDeck = Crafty.e 'DrawDeck, spr_trench_back'
       .deck(grid, highlight)
       .attr(
-        x: game.margin.x / 4 - 32
-        y: (game.height() + game.margin.y) / 2 - 32
+        x: config.margin.x / 4 - 32
+        y: (config.height() + config.margin.y) / 2 - 32
       ).add(
     StraightTrench: 20
     TTrench: 20
@@ -301,6 +350,6 @@ Crafty.scene 'Game', ->
     BendTrench: 20
   ).shuffle()
 
-window.addEventListener 'load', -> game.init()
+window.addEventListener 'load', -> config.init()
 
 
