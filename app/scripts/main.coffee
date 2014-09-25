@@ -71,7 +71,6 @@ Crafty.c 'GameManager',
     @_player = null
     @_onTurn = false
 
-    console.log "Loading!"
     Crafty.scene 'Loading'
 
   activePlayer: -> @_onTurn and @_player
@@ -112,9 +111,10 @@ Crafty.c 'Owned',
 
 Crafty.c 'DrawDeck',
   init: ->
-    @requires 'Deck, Mouse, Canvas, 2D'
+    @requires 'Deck, Mouse, Canvas, 2D, Lockable'
 
     @bind 'Click', (e) ->
+      return if @isLocked?()
       if e.mouseButton == Crafty.mouseButtons.LEFT and @hasNextCard()
         @nextCard().attr(x: @x, y: @y).startDrag()
 
@@ -254,6 +254,45 @@ Crafty.c 'Griddable',
 Crafty.c 'Tile',
   init: -> @requires '2D, Canvas, Griddable'
 
+Crafty.c 'Lockable', do ->
+  lockEntity = null
+  zOffset = 0
+  isLocked = true
+  return {
+    init: ->
+      lockEntity = Crafty.e('2D, Canvas').attr(z: @z)
+      @attach(lockEntity)
+      lockEntity.attr(x: 32, y: 0)
+
+      @bind 'Invalidate', ->
+        z = lockEntity._z + zOffset
+        lockEntity.attr(z: z) if @_z != z
+
+      # Automatically lock offturn.
+      @bind 'StartTurn', -> @unlock()
+      @bind 'EndTurn', -> @lock()
+
+      @lock()
+
+    isLocked: -> isLocked
+
+    lockable: ({ sprite, offset }) ->
+      lockEntity.addComponent(sprite)
+      zOffset = offset
+      @trigger 'Invalidate'
+      return @
+
+    lock: ->
+      isLocked = true
+      lockEntity.visible = true
+      @trigger 'Lock'
+
+    unlock: ->
+      isLocked = false
+      lockEntity.visible = false
+      @trigger 'Unlock'
+  }
+
 Crafty.c 'Mask',
   masked: (value) ->
     if value?
@@ -349,6 +388,9 @@ Crafty.scene 'Loading', ->
       spr_trench_cross:    [3, 0]
       spr_trench_bend:     [4, 0]
 
+    Crafty.sprite 32, 'images/lock.png',
+      spr_lock:     [0, 0]
+
     # Now that our sprites are ready to draw, start the game
     Crafty.scene 'Game'
 
@@ -361,6 +403,9 @@ Crafty.scene 'Game', ->
       .attr(
         x: config.margin.x / 4 - 32
         y: (config.height() + config.margin.y) / 2 - 32
+      ).lockable(
+        sprite: 'spr_lock'
+        offset: 2
       ).add(
     StraightTrench: 20
     TTrench: 20
