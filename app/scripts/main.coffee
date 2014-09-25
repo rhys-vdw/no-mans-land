@@ -36,7 +36,6 @@ config =
     Crafty.background 'rgb(100, 100, 100)'
 
     game = Crafty.e('GameManager')
-    console.log 'game', game
 
     $status = $('#status')
     $nextTurn = $('#next-turn')
@@ -61,7 +60,6 @@ config =
 
 Crafty.c 'GameManager',
   init: ->
-    console.log "init?"
     @requires 'Keyboard'
 
     @bind 'KeyDown', (e) -> @_keydown e
@@ -75,7 +73,7 @@ Crafty.c 'GameManager',
 
   activePlayer: -> @_onTurn and @_player
 
-  isRevealing: (player) -> return @_isRevealing and @_player == player
+  isPeeking: (player) -> return @_isPeeking and @_player == player
 
   startGame: ->
     @_onTurn = false
@@ -92,17 +90,24 @@ Crafty.c 'GameManager',
 
   endTurn: ->
     @_onTurn = false
+    @_stopPeek()
     Crafty.trigger 'EndTurn', player: @_player
+
+  _startPeek: ->
+    Crafty.trigger 'StartPeek', player: @_player
+    @_isPeeking = true
+
+  _stopPeek: ->
+    Crafty.trigger 'StopPeek', player: @_player
+    @_isPeeking = false
 
   _keydown: (e) ->
     if e.keyCode == Crafty.keys.ENTER and @_onTurn
-      Crafty.trigger 'Reveal', player: @_player
-      @_isRevealing = true
+      @_startPeek()
 
   _keyup: (e) ->
     if e.keyCode == Crafty.keys.ENTER
-      Crafty.trigger 'Hide', player: @_player
-      @_isRevealing = false
+      @_stopPeek()
 
 Crafty.c 'Owned',
   owned: (@_owner) ->
@@ -129,7 +134,6 @@ Crafty.c 'Deck',
 
   hasNextCard: -> @_cards.length > 0
   nextCard: ->
-    console.log "Craeting a tile owned by ", game.activePlayer()
     Crafty.e(@_cards.pop()).griddable(@_grid, @_highlight).owned(game.activePlayer())
 
   shuffle: ->
@@ -221,6 +225,8 @@ Crafty.c 'Griddable',
 
   griddable: (@_grid, @_highlight, @_staticZ=2, @_dragZ=999) ->
 
+    @bind 'Lock', -> @disableDrag()
+    @bind 'Unlock', -> @enableDrag()
     @bind 'StartDrag', ->
       @attr z: @_dragZ
 
@@ -254,44 +260,45 @@ Crafty.c 'Griddable',
 Crafty.c 'Tile',
   init: -> @requires '2D, Canvas, Griddable'
 
-Crafty.c 'Lockable', do ->
-  lockEntity = null
-  zOffset = 0
-  isLocked = true
-  return {
-    init: ->
-      lockEntity = Crafty.e('2D, Canvas').attr(z: @z)
-      @attach(lockEntity)
-      lockEntity.attr(x: 32, y: 0)
+Crafty.c 'Lockable',
+  _lockEntity: null
+  _zOffset: 0
+  _isLocked: false
+  init: ->
+    @_lockEntity = Crafty.e('2D, Canvas').attr(z: @z)
+    @attach(@_lockEntity)
+    @_lockEntity.attr(x: 32, y: 0)
 
-      @bind 'Invalidate', ->
-        z = lockEntity._z + zOffset
-        lockEntity.attr(z: z) if @_z != z
+    @bind 'Invalidate', ->
+      z = @_lockEntity._z + @_zOffset
+      @_lockEntity.attr(z: z) if @_z != z
 
-      # Automatically lock offturn.
-      @bind 'StartTurn', -> @unlock()
-      @bind 'EndTurn', -> @lock()
+    # Automatically lock offturn.
+    @bind 'StartTurn', -> @unlock()
+    @bind 'EndTurn', -> @lock()
 
+    if game._onTurn
+      @unlock()
+    else
       @lock()
 
-    isLocked: -> isLocked
+  isLocked: -> @_isLocked
 
-    lockable: ({ sprite, offset }) ->
-      lockEntity.addComponent(sprite)
-      zOffset = offset
-      @trigger 'Invalidate'
-      return @
+  lockable: ({ sprite, offset }) ->
+    @_lockEntity.addComponent(sprite)
+    @_zOffset = offset
+    @trigger 'Invalidate'
+    return @
 
-    lock: ->
-      isLocked = true
-      lockEntity.visible = true
-      @trigger 'Lock'
+  lock: ->
+    @_isLocked = true
+    @_lockEntity.visible = true
+    @trigger 'Lock'
 
-    unlock: ->
-      isLocked = false
-      lockEntity.visible = false
-      @trigger 'Unlock'
-  }
+  unlock: ->
+    @_isLocked = false
+    @_lockEntity.visible = false
+    @trigger 'Unlock'
 
 Crafty.c 'Mask',
   masked: (value) ->
@@ -321,22 +328,22 @@ Crafty.c 'Mask',
         @_maskObject.attr z: @_z
 
     # Bind to global events to temporarily show tokens.
-    @bind 'Reveal', (e) ->
+    @bind 'StartPeek', (e) ->
       if @_owner == e.player
         @_maskObject.visible = false
 
-    @bind 'Hide', (e) ->
+    @bind 'StopPeek', (e) ->
       if @_owner == e.player and @_masked
         @_maskObject.visible = true
 
     # Also update these live when ownership changes.
     @bind 'OwnerChanged', (e) ->
-      if game.isRevealing(e.owner)
+      if game.isPeeking(e.owner)
         @_maskObject.visible = false
 
 Crafty.c 'TrenchTile',
   init: ->
-    @requires 'Tile, Rotatable, Mask, Owned'
+    @requires 'Tile, Rotatable, Mask, Owned, Lockable'
     @mask 'spr_trench_back'
     @bind 'StartTurn', (e) ->
       if e.player == @_owner
