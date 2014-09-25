@@ -74,7 +74,9 @@ Crafty.c 'GameManager',
     console.log "Loading!"
     Crafty.scene 'Loading'
 
-  activePlayer: -> @_player
+  activePlayer: -> @_onTurn and @_player
+
+  isRevealing: (player) -> return @_isRevealing and @_player == player
 
   startGame: ->
     @_onTurn = false
@@ -96,12 +98,17 @@ Crafty.c 'GameManager',
   _keydown: (e) ->
     if e.keyCode == Crafty.keys.ENTER and @_onTurn
       Crafty.trigger 'Reveal', player: @_player
+      @_isRevealing = true
 
   _keyup: (e) ->
     if e.keyCode == Crafty.keys.ENTER
       Crafty.trigger 'Hide', player: @_player
+      @_isRevealing = false
 
-Crafty.c 'Owned', owned: (@_owner) -> @
+Crafty.c 'Owned',
+  owned: (@_owner) ->
+    @trigger 'OwnerChanged', owner: @_owner
+    @
 
 Crafty.c 'DrawDeck',
   init: ->
@@ -263,12 +270,18 @@ Crafty.c 'Mask',
     @_masked = true
     @_maskObject = Crafty.e '2D, Canvas'
     @_maskObject.attr z: @z
-    @bind 'DoubleClick', => @masked(!@masked())
     @attach @_maskObject
+
+    # TEMP: double click toggles visibility of token
+    @bind 'DoubleClick', => @masked(!@masked())
+
+    # Update the child z depth whenever this changes layers. This ensures the
+    # token is never higher than the mask.
     @bind 'Invalidate', ->
       if @_z != @_maskObject._z
         @_maskObject.attr z: @_z
 
+    # Bind to global events to temporarily show tokens.
     @bind 'Reveal', (e) ->
       if @_owner == e.player
         @_maskObject.visible = false
@@ -276,6 +289,11 @@ Crafty.c 'Mask',
     @bind 'Hide', (e) ->
       if @_owner == e.player and @_masked
         @_maskObject.visible = true
+
+    # Also update these live when ownership changes.
+    @bind 'OwnerChanged', (e) ->
+      if game.isRevealing(e.owner)
+        @_maskObject.visible = false
 
 Crafty.c 'TrenchTile',
   init: ->
