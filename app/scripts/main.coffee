@@ -94,19 +94,29 @@ Crafty.c 'GameManager',
     Crafty.trigger 'EndTurn', player: @_player
 
   _startPeek: ->
-    Crafty.trigger 'StartPeek', player: @_player
     @_isPeeking = true
+    Crafty.trigger 'StartPeek', player: @_player
 
   _stopPeek: ->
-    Crafty.trigger 'StopPeek', player: @_player
     @_isPeeking = false
+    @_peekToggled = false
+    Crafty.trigger 'StopPeek', player: @_player
+
+  _togglePeek: ->
+    if @_peekToggled == true
+      @_stopPeek()
+    else
+      @_peekToggled = true
+      @_startPeek()
 
   _keydown: (e) ->
+    if e.keyCode == Crafty.keys.P and @_onTurn
+      @_togglePeek()
     if e.keyCode == Crafty.keys.ENTER and @_onTurn
       @_startPeek()
 
   _keyup: (e) ->
-    if e.keyCode == Crafty.keys.ENTER
+    if e.keyCode == Crafty.keys.ENTER and !@_peekToggled
       @_stopPeek()
 
 Crafty.c 'Owned',
