@@ -142,7 +142,6 @@ Crafty.c 'Rotatable',
   init: ->
     @requires '2D, Mouse'
     @bind 'MouseUp', (e) ->
-      console.log @_origin
       @rotation += 90 if e.mouseButton == Crafty.mouseButtons.RIGHT
 
 Crafty.c 'TrenchTile',
