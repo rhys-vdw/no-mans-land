@@ -310,54 +310,81 @@ Crafty.c 'Lockable',
     @_lockEntity.visible = false
     @trigger 'Unlock'
 
-Crafty.c 'Mask',
-  masked: (value) ->
-    if value?
-      @_masked = value
-      @_maskObject.visible = value
-    else
-      return @_masked
+Crafty.c 'Maskable', init: ->
+  masked = false
+  maskEntity = null
 
-  mask: (sprite) ->
-    @_maskObject.addComponent sprite
-    return @
+  setMasked = (value) ->
+    masked = value
+    maskEntity.visible = value
 
-  init: ->
-    @_masked = true
-    @_maskObject = Crafty.e '2D, Canvas'
-    @_maskObject.attr z: @z
-    @attach @_maskObject
+  @isMasked = -> masked
+  @mask = -> setMasked(true)
+  @reveal = -> setMasked(false)
 
-    # TEMP: double click toggles visibility of token
-    @bind 'DoubleClick', => @masked(!@masked())
-
-    # Update the child z depth whenever this changes layers. This ensures the
-    # token is never higher than the mask.
-    @bind 'Invalidate', ->
-      if @_z != @_maskObject._z
-        @_maskObject.attr z: @_z
+  @maskable = (sprite) ->
+    @requires 'SpriteLayers'
+    maskEntity = @addLayer('Mask', components: sprite).attr visible: true
+    masked = true
 
     # Bind to global events to temporarily show tokens.
+
     @bind 'StartPeek', (e) ->
-      if @_owner == e.player
-        @_maskObject.visible = false
+      maskEntity.visible = false if @_owner == e.player
 
     @bind 'StopPeek', (e) ->
-      if @_owner == e.player and @_masked
-        @_maskObject.visible = true
+      maskEntity.visible = true if @_owner == e.player and masked
 
-    # Also update these live when ownership changes.
     @bind 'OwnerChanged', (e) ->
-      if game.isPeeking(e.owner)
-        @_maskObject.visible = false
+      maskEntity.visible = false if game.isPeeking(e.owner)
+
+    return @
+
+Crafty.c 'SpriteLayers', init: ->
+  @requires '2D'
+
+  # Private vars
+
+  layers = {}
+
+  # Update the layer z depths whenever this changes layers. This ensures the
+  # token is never higher than the mask.
+  @bind 'Invalidate', ->
+    for name, entity of layers
+      entity.attr(z: @_z) if entity._z != @_z
+
+  # Public interface
+
+  @getLayer = (sprite) -> layers[sprite]
+
+  @addLayer = (name, { components, offset, visible }) ->
+    offset ?= x: 0, y: 0
+    visible ?= true
+
+    entity = Crafty.e("2D, Canvas, #{ components }")
+    entity.attr(x: offset.x, y: offset.y, z: @z)
+    entity.visible = visible
+    @attach(entity)
+
+    layers[name] = entity
+    return entity
+
+
+Crafty.c 'Unit',
+  init: ->
+    @requires 'Tile, Mask, Owned, Lockable'
+
+  unit: ({ player }) ->
+    @owned(player)
+    @_backSprite = ''
 
 Crafty.c 'TrenchTile',
   init: ->
-    @requires 'Tile, Rotatable, Mask, Owned, Lockable'
-    @mask 'spr_trench_back'
+    @requires 'Tile, Rotatable, Maskable, Owned, Lockable'
+    @maskable 'spr_trench_back'
     @bind 'StartTurn', (e) ->
       if e.player == @_owner
-        @masked(false)
+        @reveal()
 
 Crafty.c 'Rotatable',
   init: ->
@@ -393,11 +420,6 @@ Crafty.scene 'Loading', ->
   Crafty.load ['images/trench-tiles.png'], ->
     # Once the image is loaded...
 
-    # Define the individual sprites in the image
-    # Each one (spr_tree, etc.) becomes a component
-    # These components' names are prefixed with "spr_"
-    #  to remind us that they simply cause the entity
-    #  to be drawn with a certain sprite
     Crafty.sprite 64, 'images/trench-tiles.png',
       spr_trench_back:     [0, 0]
       spr_trench_straight: [1, 0]
@@ -407,6 +429,12 @@ Crafty.scene 'Loading', ->
 
     Crafty.sprite 32, 'images/lock.png',
       spr_lock:     [0, 0]
+
+    Crafty.sprite 32, 'images/units.png',
+      spr_p1_back:     [0, 0]
+      spr_p2_back:     [0, 1]
+      spr_p1_rifleman: [1, 0]
+      spr_p2_rifleman: [1, 1]
 
     # Now that our sprites are ready to draw, start the game
     Crafty.scene 'Game'
