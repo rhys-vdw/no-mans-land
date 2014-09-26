@@ -144,7 +144,7 @@ Crafty.c 'Deck',
 
   hasNextCard: -> @_cards.length > 0
   nextCard: ->
-    Crafty.e(@_cards.pop()).griddable(@_grid, @_highlight).owned(game.activePlayer())
+    Crafty.e(@_cards.pop()).griddable(@_grid, @_highlight)
 
   shuffle: ->
     shuffle @_cards
@@ -379,12 +379,7 @@ Crafty.c 'Unit',
     @_backSprite = ''
 
 Crafty.c 'TrenchTile',
-  init: ->
-    @requires 'Tile, Rotatable, Maskable, Owned, Lockable'
-    @maskable 'spr_trench_back'
-    @bind 'StartTurn', (e) ->
-      if e.player == @_owner
-        @reveal()
+  init: -> @requires 'Tile, Rotatable, Lockable'
 
 Crafty.c 'Rotatable',
   init: ->
