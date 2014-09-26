@@ -102,42 +102,6 @@ Crafty.c 'GameManager',
     if e.keyCode == Crafty.keys.ENTER and !@_peekToggled
       @_stopPeek()
 
-Crafty.c 'Lockable',
-  _lockEntity: null
-  _zOffset: 0
-  _isLocked: false
-  init: ->
-    @_lockEntity = Crafty.e('2D, Canvas').attr(z: @z)
-    @attach(@_lockEntity)
-    @_lockEntity.attr(x: 32, y: 0)
-
-    @bind 'Invalidate', ->
-      z = @_lockEntity._z + @_zOffset
-      @_lockEntity.attr(z: z) if @_z != z
-
-    # Automatically lock offturn.
-    @bind 'StartTurn', -> @unlock()
-    @bind 'EndTurn', -> @lock()
-
-    @lock()
-
-  isLocked: -> @_isLocked
-
-  lockable: ({ sprite, offset }) ->
-    @_lockEntity.addComponent(sprite)
-    @_zOffset = offset
-    @trigger 'Invalidate'
-    return @
-
-  lock: ->
-    @_isLocked = true
-    @_lockEntity.visible = true
-    @trigger 'Lock'
-
-  unlock: ->
-    @_isLocked = false
-    @_lockEntity.visible = false
-    @trigger 'Unlock'
 
 Crafty.c 'Maskable', init: ->
   masked = false
@@ -244,15 +208,14 @@ Crafty.scene 'Game', ->
   grid = Crafty.e('Grid').attr(x: config.margin.x / 2, y: config.margin.y / 2, w: config.width(), h: config.height())
   highlight = Crafty.e('GridHighlight').gridHighlight(grid, 'white')
 
-  trenchDeck = Crafty.e 'DrawDeck, spr_trench_back'
+  trenchDeck = Crafty.e 'DrawDeck, Draggable, spr_trench_back'
       .deck(grid, highlight)
+      .lockable( showSprite: true )
       .attr(
         x: config.margin.x / 4 - 32
         y: (config.height() + config.margin.y) / 2 - 32
-      ).lockable(
-        sprite: 'spr_lock'
-        offset: 2
-      ).add(
+      )
+      .add(
     StraightTrench: 20
     TTrench: 20
     CrossTrench: 20

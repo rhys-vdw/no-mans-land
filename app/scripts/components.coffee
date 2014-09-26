@@ -17,6 +17,37 @@ shuffle = (array) ->
 
     return array
 
+Crafty.c 'Lockable', init: ->
+
+  # Private vars
+  lockEntity = null
+  isLocked = false
+
+  # Constructor
+  @lockable = ({ showSprite }) ->
+    if showSprite
+      @requires 'SpriteLayers'
+      lockEntity = @addLayer 'Lock', { components: 'spr_lock', offset: { x: 32, y: 0 } }
+    @lock()
+    return @
+
+  # Event subscription.
+  @bind 'StartTurn', -> @unlock()
+  @bind 'EndTurn', -> @lock()
+
+  # API
+  @isLocked = -> isLocked
+
+  @lock = ->
+    isLocked = true
+    lockEntity.visible = true
+    @trigger 'Lock'
+
+  @unlock = ->
+    isLocked = false
+    lockEntity.visible = false
+    @trigger 'Unlock'
+
 # Draws the board grid.
 Crafty.c 'Grid',
   ready: true
