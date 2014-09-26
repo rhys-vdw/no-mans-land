@@ -173,7 +173,6 @@ Crafty.c 'SpriteLayers', init: ->
   @requires '2D'
 
   # Private vars
-
   layers = {}
 
   # Update the layer z depths whenever this changes layers. This ensures the
@@ -184,16 +183,16 @@ Crafty.c 'SpriteLayers', init: ->
 
   # Public interface
 
-  @getLayer = (sprite) -> layers[sprite]
+  @getLayer = (name) -> layers[name]
 
   @addLayer = (name, { components, offset, visible }) ->
     offset ?= x: 0, y: 0
     visible ?= true
 
     entity = Crafty.e("2D, Canvas, #{ components }")
+    @attach(entity)
     entity.attr(x: offset.x, y: offset.y, z: @z)
     entity.visible = visible
-    @attach(entity)
 
     layers[name] = entity
     return entity
