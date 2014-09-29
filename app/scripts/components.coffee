@@ -37,6 +37,8 @@ Crafty.c 'SpriteLayers', init: ->
     offset ?= x: 0, y: 0
     visible ?= true
 
+    console.log "Adding layer!", name, components, offset, visible
+
     entity = Crafty.e("2D, Canvas, #{ components }")
     @attach(entity)
     entity.attr(x: offset.x, y: offset.y, z: @z)
@@ -65,13 +67,14 @@ Crafty.c 'Maskable', init: ->
     # Bind to global events to temporarily show tokens.
 
     @bind 'StartPeek', (e) ->
-      maskEntity.visible = false if @_owner == e.player
+      maskEntity.visible = false if @ownedBy(e.player)
 
     @bind 'StopPeek', (e) ->
-      maskEntity.visible = true if @_owner == e.player and masked
+      maskEntity.visible = true if @ownedBy(e.player) and masked
 
     @bind 'OwnerChanged', (e) ->
-      maskEntity.visible = false if game.isPeeking(e.owner)
+      game = Crafty('GameManager')
+      maskEntity.visible = false if game?.isPeeking(e.owner)
 
     return @
 
@@ -250,10 +253,17 @@ Crafty.c 'BendTrench',
   init: -> @requires 'TrenchTile, spr_trench_bend'
 
 # Gives an 'owner' to the entity.
-Crafty.c 'Owned',
-  owned: (@_owner) ->
-    @trigger 'OwnerChanged', owner: @_owner
-    @
+Crafty.c 'Ownable', init: ->
+  _owner = null
+
+  @owner = (player) ->
+    if player?
+      _owner = player
+      @trigger 'OwnerChanged', owner: player
+      return @
+    return _owner
+
+  @ownedBy = (player) -> return _owner == player
 
 # Just the model part of a deck.
 Crafty.c 'Deck',
@@ -290,11 +300,14 @@ Crafty.c 'DrawDeck',
       if e.mouseButton == Crafty.mouseButtons.LEFT and @hasNextCard()
         @nextCard().attr(x: @x, y: @y).startDrag()
 
+Crafty.c 'Unit', init: ->
+  console.log "init unit"
 
-Crafty.c 'Unit',
-  init: ->
-    @requires 'Tile, Mask, Owned, Lockable'
+  @requires 'Tile, Ownable, Mouse'
+  @attr w: 64, h: 64, z: 10
 
-  unit: ({ player }) ->
-    @owned(player)
-    @_backSprite = ''
+  @bind 'OwnerChanged', (e) ->
+    @addComponent "spr_p#{ e.owner }_rifleman, Maskable"
+    @maskable("spr_p#{ e.owner }_back")
+    @bind 'DoubleClick', -> if @isMasked() then @reveal() else @mask()
+

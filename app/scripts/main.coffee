@@ -140,7 +140,7 @@ Crafty.scene 'Game', ->
   grid = Crafty.e('Grid').attr(x: config.margin.x / 2, y: config.margin.y / 2, w: config.width(), h: config.height())
   highlight = Crafty.e('GridHighlight').gridHighlight(grid, 'white')
 
-  trenchDeck = Crafty.e 'DrawDeck, Draggable, spr_trench_back'
+  trenchDeck = Crafty.e 'DrawDeck, spr_trench_back'
       .deck(grid, highlight)
       .lockable( showSprite: true )
       .attr(
@@ -153,6 +153,8 @@ Crafty.scene 'Game', ->
     CrossTrench: 20
     BendTrench: 20
   ).shuffle()
+
+  Crafty.e('Unit').griddable(grid, highlight).owner(1).position(4, 4)
 
 window.addEventListener 'load', -> config.init()
 

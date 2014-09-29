@@ -4,7 +4,8 @@
   "dependencies": {
     "jquery": "~1.11.0",
     "crafty": "~0.6.2",
-    "lazy.js": "~0.3.2"
+    "lazy.js": "~0.3.2",
+    "lodash": "~2.4.1"
   },
   "devDependencies": {}
 }
