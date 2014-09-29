@@ -201,7 +201,10 @@ Crafty.c 'Griddable',
       @attr z: @_staticZ
       cell = @_grid.cellAtPosition(@_x + @_w / 2, @_y + @_h / 2)
       if cell?
-        @attr x: cell.x, y: cell.y
+        @attr(
+          x: cell.x + (cell.w - @_w) / 2
+          y: cell.y + (cell.h - @_h) / 2
+        )
 
     if @_highlight?
       @_highlight.visible = false
