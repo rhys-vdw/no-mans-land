@@ -17,6 +17,65 @@ shuffle = (array) ->
 
     return array
 
+Crafty.c 'SpriteLayers', init: ->
+  @requires '2D'
+
+  # Private vars
+  layers = {}
+
+  # Update the layer z depths whenever this changes layers. This ensures the
+  # token is never higher than the mask.
+  @bind 'Invalidate', ->
+    for name, entity of layers
+      entity.attr(z: @_z) if entity._z != @_z
+
+  # Public interface
+
+  @getLayer = (name) -> layers[name]
+
+  @addLayer = (name, { components, offset, visible }) ->
+    offset ?= x: 0, y: 0
+    visible ?= true
+
+    entity = Crafty.e("2D, Canvas, #{ components }")
+    @attach(entity)
+    entity.attr(x: offset.x, y: offset.y, z: @z)
+    entity.visible = visible
+
+    layers[name] = entity
+    return entity
+
+Crafty.c 'Maskable', init: ->
+  masked = false
+  maskEntity = null
+
+  setMasked = (value) ->
+    masked = value
+    maskEntity.visible = value
+
+  @isMasked = -> masked
+  @mask = -> setMasked(true)
+  @reveal = -> setMasked(false)
+
+  @maskable = (sprite) ->
+    @requires 'SpriteLayers'
+    maskEntity = @addLayer('Mask', components: sprite).attr visible: true
+    masked = true
+
+    # Bind to global events to temporarily show tokens.
+
+    @bind 'StartPeek', (e) ->
+      maskEntity.visible = false if @_owner == e.player
+
+    @bind 'StopPeek', (e) ->
+      maskEntity.visible = true if @_owner == e.player and masked
+
+    @bind 'OwnerChanged', (e) ->
+      maskEntity.visible = false if game.isPeeking(e.owner)
+
+    return @
+
+
 Crafty.c 'Lockable', init: ->
 
   # Private vars
@@ -230,3 +289,12 @@ Crafty.c 'DrawDeck',
       return if @isLocked?()
       if e.mouseButton == Crafty.mouseButtons.LEFT and @hasNextCard()
         @nextCard().attr(x: @x, y: @y).startDrag()
+
+
+Crafty.c 'Unit',
+  init: ->
+    @requires 'Tile, Mask, Owned, Lockable'
+
+  unit: ({ player }) ->
+    @owned(player)
+    @_backSprite = ''
