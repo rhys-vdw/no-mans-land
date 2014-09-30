@@ -141,18 +141,34 @@ Crafty.scene 'Game', ->
   highlight = Crafty.e('GridHighlight').gridHighlight(grid, 'white')
 
   trenchDeck = Crafty.e 'DrawDeck, spr_trench_back'
-      .deck(grid, highlight)
-      .lockable( showSprite: true )
-      .attr(
-        x: config.margin.x / 4 - 32
-        y: (config.height() + config.margin.y) / 2 - 32
-      )
-      .add(
-    StraightTrench: 20
-    TTrench: 20
-    CrossTrench: 20
-    BendTrench: 20
-  ).shuffle()
+    .deck(grid, highlight)
+    .drawDeck(initCard: (tile) -> tile.startDrag())
+    .lockable( showSprite: true )
+    .attr(
+      x: config.margin.x / 4 - 32
+      y: (config.height() + config.margin.y) / 2 - 32
+    ).add(
+      StraightTrench: 20
+      TTrench: 20
+      CrossTrench: 20
+      BendTrench: 20
+    ).shuffle()
+
+  unitDeck = Crafty.e 'DrawDeck, spr_p2_back'
+    .deck(grid, highlight)
+    .drawDeck(initCard: (unit) ->
+      unit.owner(game.activePlayer())
+      unit.mask()
+      unit.startDrag()
+      #unit.visible = false
+    )
+    .lockable( showSprite: true )
+    .attr
+      x: config.margin.x / 4 - 32
+      y: (config.height() + config.margin.y + 128) / 2 - 32
+    .add(Unit: 100)
+    .shuffle()
+
 
   Crafty.e('Unit').griddable(grid, highlight).owner(1).position(4, 4)
 

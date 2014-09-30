@@ -37,11 +37,9 @@ Crafty.c 'SpriteLayers', init: ->
     offset ?= x: 0, y: 0
     visible ?= true
 
-    console.log "Adding layer!", name, components, offset, visible
-
     entity = Crafty.e("2D, Canvas, #{ components }")
     @attach(entity)
-    entity.attr(x: offset.x, y: offset.y, z: @z)
+    entity.attr(x: @_x + offset.x, y: @_y + offset.y, z: @z)
     entity.visible = visible
 
     layers[name] = entity
@@ -51,9 +49,10 @@ Crafty.c 'Maskable', init: ->
   masked = false
   maskEntity = null
 
-  setMasked = (value) ->
-    masked = value
-    maskEntity.visible = value
+  setMasked = (value) =>
+    if value != masked
+      masked = value
+      maskEntity.attr visible: value
 
   @isMasked = -> masked
   @mask = -> setMasked(true)
@@ -283,7 +282,7 @@ Crafty.c 'Deck',
     Crafty.e(@_cards.pop()).griddable(@_grid, @_highlight)
 
   shuffle: ->
-    shuffle @_cards
+    shuffle(@_cards)
     @trigger 'CardsShuffled', @_cards
     return @
 
@@ -294,18 +293,24 @@ Crafty.c 'Deck',
     return @
 
 
-Crafty.c 'DrawDeck',
-  init: ->
-    @requires 'Deck, Mouse, Canvas, 2D, Lockable'
+Crafty.c 'DrawDeck', init: ->
+  @requires('Deck, Mouse, Canvas, 2D, Lockable')
 
-    @bind 'Click', (e) ->
-      return if @isLocked?()
-      if e.mouseButton == Crafty.mouseButtons.LEFT and @hasNextCard()
-        @nextCard().attr(x: @x, y: @y).startDrag()
+  _initCard = _.noop
+
+  @bind 'Click', (e) ->
+    return if @isLocked?()
+    if e.mouseButton == Crafty.mouseButtons.LEFT and @hasNextCard()
+      card = @nextCard().attr(x: @x, y: @y)
+      _initCard(card)
+      return card
+
+  @drawDeck = ({ initCard }) ->
+    _initCard = initCard if initCard
+    return @
+
 
 Crafty.c 'Unit', init: ->
-  console.log "init unit"
-
   @requires 'Tile, Ownable, Mouse'
   @attr w: 64, h: 64, z: 10
 
